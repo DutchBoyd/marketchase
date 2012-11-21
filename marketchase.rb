@@ -21,7 +21,7 @@ def checkbuyprice (buy, set)
     if buy.strip.empty?
 		# Buy Variable is blank
 		# Fill out your db info here.  Next version should have support for loading a dbconfig file		
-		dbh = Mysql.new('dbhost', 'dbuser', 'dbpass', 'dbname')
+		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
 		# MySQL Query gets the last value for buyPrice
 		querystring = "SELECT BuyPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
 		d = dbh.query(querystring)
@@ -36,7 +36,7 @@ def checkbuyprice (buy, set)
 end
 def checksellprice	(sell, set)
 	if sell.strip.empty?
-		dbh = Mysql.new('dbhost', 'dbuser', 'dbpass', 'dbname')
+		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
 		d = dbh.query("SELECT SellPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT MAX(TIME) FROM boosters WHERE MTGSet='#{set}')")
 		dbh.close
 		s = d.fetch_row[0]
@@ -70,7 +70,7 @@ boosterPrices.each do |l|
 		
 		buyPrice = checkbuyprice(l[51,5], set).strip
 		sellPrice = checksellprice(l[61,5], set).strip
-		dbh = Mysql.new('dbhost', 'dbuser', 'dbpass', 'dbname')
+		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
 		dbh.query("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('#{set}', '#{buyPrice}', '#{sellPrice}')")
 		dbh.close
 	end
