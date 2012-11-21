@@ -17,34 +17,31 @@ require 'mysql'
 require 'yaml'
 DbConfig = YAML.load_file('database.yml')
 
-def checkbuyprice (buy, set)
-    if buy.strip.empty?
-		# Buy Variable is blank
-		# Fill out your db info here.  Next version should have support for loading a dbconfig file		
-		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-		# MySQL Query gets the last value for buyPrice
-		querystring = "SELECT BuyPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
-		d = dbh.query(querystring)
-		dbh.close
-		b = d.fetch_row[0]
-		return b
-	else
-		# Buy Variable is not blank
-		b = buy
-		return b
-	end
+def check_price (col, set)
+  # Buy Variable is blank
+  # Fill out your db info here.  Next version should have support for loading a dbconfig file		
+  dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
+  # MySQL Query gets the last value for buyPrice
+  querystring = "SELECT #{col} FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
+  d = dbh.query(querystring)
+  dbh.close
+  return d.fetch_row[0]
 end
+
+def checkbuyprice (buy, set)
+  if buy.strip.empty?
+    check_price('BuyPrice', set)
+  else
+    return buy
+  end
+end
+
 def checksellprice	(sell, set)
-	if sell.strip.empty?
-		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-		d = dbh.query("SELECT SellPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT MAX(TIME) FROM boosters WHERE MTGSet='#{set}')")
-		dbh.close
-		s = d.fetch_row[0]
-		return s
-	else
-		s = sell
-		return s
-	end
+  if sell.strip.empty?
+    return check_price('SellPrice', set)
+  else
+    return sell
+  end
 end
 
 #opening Supernova booster pricelist
