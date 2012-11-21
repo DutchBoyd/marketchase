@@ -52,7 +52,7 @@ module Marketchase
   def self.booster_parse(line)
     case line
       when /[^\[]+\[(\w+)\]\s+(\d+\.\d+)\s+(\d+\.\d+)/
-        return { set: $1, buy: $2, sell: $3 }
+        { set: $1, buy: $2, sell: $3 }
       when /([^\[]+\[)(\w+)(\]\s+)(\d+\.\d+)\s+/
         # determine if amount is buy or sell
         buy_column_start = 52
@@ -61,9 +61,9 @@ module Marketchase
         else
           buy, sell = $4, nil
         end
-        return { set: $2, buy: buy, sell: sell }
+        { set: $2, buy: buy, sell: sell }
       else
-        return nil
+        nil
     end
   end
 
