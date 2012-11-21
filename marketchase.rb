@@ -15,63 +15,67 @@
 require 'open-uri'
 require 'mysql'
 require 'yaml'
-DbConfig = YAML.load_file('database.yml')
 
-def checkbuyprice (buy, set)
+module Marketchase
+  DbConfig = YAML.load_file('database.yml')
+
+  def self.checkbuyprice (buy, set)
     if buy.strip.empty?
-		# Buy Variable is blank
-		# Fill out your db info here.  Next version should have support for loading a dbconfig file		
-		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-		# MySQL Query gets the last value for buyPrice
-		querystring = "SELECT BuyPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
-		d = dbh.query(querystring)
-		dbh.close
-		b = d.fetch_row[0]
-		return b
-	else
-		# Buy Variable is not blank
-		b = buy
-		return b
-	end
-end
-def checksellprice	(sell, set)
-	if sell.strip.empty?
-		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-		d = dbh.query("SELECT SellPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT MAX(TIME) FROM boosters WHERE MTGSet='#{set}')")
-		dbh.close
-		s = d.fetch_row[0]
-		return s
-	else
-		s = sell
-		return s
-	end
-end
+      # Buy Variable is blank
+      # Fill out your db info here.  Next version should have support for loading a dbconfig file		
+      dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
+      # MySQL Query gets the last value for buyPrice
+      querystring = "SELECT BuyPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
+      d = dbh.query(querystring)
+      dbh.close
+      b = d.fetch_row[0]
+      return b
+    else
+      # Buy Variable is not blank
+      b = buy
+      return b
+    end
+  end
+  def self.checksellprice	(sell, set)
+    if sell.strip.empty?
+      dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
+      d = dbh.query("SELECT SellPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT MAX(TIME) FROM boosters WHERE MTGSet='#{set}')")
+      dbh.close
+      s = d.fetch_row[0]
+      return s
+    else
+      s = sell
+      return s
+    end
+  end
 
-#opening Supernova booster pricelist
-f = open('http://supernovabots.com/prices_6.txt')
-boosterPrices = f.readlines
+  def self.run
+    #opening Supernova booster pricelist
+    f = open('http://supernovabots.com/prices_6.txt')
+    boosterPrices = f.readlines
 
-#For each line, setting Buy/Sell/Set vars and writing to the database
-boosterPrices.each do |l|
+    #For each line, setting Buy/Sell/Set vars and writing to the database
+    boosterPrices.each do |l|
 
-# Here we are working with regex to detect whether the line is valid
-# and to pull out the set.  Future versions will pull out quantity.
-# REGEX string to capture the set :  /\s\[[\w]{2,3}\]/
-# REGEX string to capture the quantity : /\S\[[\w]{1,3}\]/
+      # Here we are working with regex to detect whether the line is valid
+      # and to pull out the set.  Future versions will pull out quantity.
+      # REGEX string to capture the set :  /\s\[[\w]{2,3}\]/
+      # REGEX string to capture the quantity : /\S\[[\w]{1,3}\]/
+      md = l.match /[^\[]+\[(\w+)\]\s+(\d+\.\d+)\s+(\d+\.\d+)/
+      if md
+        _, set, buy, sell = md.to_a
 
-	if l=~/\s\[[\w]{2,3}\]/
-		match1 = l.match /\s\[[\w]{2,3}\]/
-		set = match1[0].strip.gsub(/[\[\]]/, "")
+        # Here, if the buyPrice or sellPrice is blank, we populate the value
+        # with the last value in our database... probably better to extrapolate
+        # using a .95:1 ratio of buy:sell prices.  Not only would that be more
+        # accurate, but it would also save database queries. Future version feature.
 
-# Here, if the buyPrice or sellPrice is blank, we populate the value
-# with the last value in our database... probably better to extrapolate
-# using a .95:1 ratio of buy:sell prices.  Not only would that be more
-# accurate, but it would also save database queries. Future version feature.
-		
-		buyPrice = checkbuyprice(l[51,5], set).strip
-		sellPrice = checksellprice(l[61,5], set).strip
-		dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-		dbh.query("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('#{set}', '#{buyPrice}', '#{sellPrice}')")
-		dbh.close
-	end
+        buyPrice = checkbuyprice(buy, set).strip
+        sellPrice = checksellprice(sell, set).strip
+        dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
+        dbh.query("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('#{set}', '#{buyPrice}', '#{sellPrice}')")
+        dbh.close
+      end
+    end
+  end
 end
