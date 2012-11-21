@@ -15,40 +15,13 @@
 require 'open-uri'
 require 'mysql'
 require 'yaml'
+require 'active_record'
+
+class Booster < ActiveRecord::Base
+
+end
 
 module Marketchase
-  DbConfig = YAML.load_file('database.yml')
-
-  def self.checkbuyprice (buy, set)
-    if buy.strip.empty?
-      # Buy Variable is blank
-      # Fill out your db info here.  Next version should have support for loading a dbconfig file		
-      dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-      # MySQL Query gets the last value for buyPrice
-      querystring = "SELECT BuyPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT Max(Time) FROM boosters WHERE MTGSet='#{set}')"
-      d = dbh.query(querystring)
-      dbh.close
-      b = d.fetch_row[0]
-      return b
-    else
-      # Buy Variable is not blank
-      b = buy
-      return b
-    end
-  end
-  def self.checksellprice	(sell, set)
-    if sell.strip.empty?
-      dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-      d = dbh.query("SELECT SellPrice FROM `boosters` WHERE MTGSet='#{set}' AND Time=(SELECT MAX(TIME) FROM boosters WHERE MTGSet='#{set}')")
-      dbh.close
-      s = d.fetch_row[0]
-      return s
-    else
-      s = sell
-      return s
-    end
-  end
-
   def self.booster_parse(line)
     case line
       when /[^\[]+\[(\w+)\]\s+(\d+\.\d+)\s+(\d+\.\d+)/
@@ -67,18 +40,19 @@ module Marketchase
     end
   end
 
+  def self.connect_db
+    ActiveRecord::Base.establish_connection(YAML.load_file('database.yml'))
+  end
+
   def self.run
+    connect_db
+
     #opening Supernova booster pricelist
     f = open('http://supernovabots.com/prices_6.txt')
     boosterPrices = f.readlines
 
     #For each line, setting Buy/Sell/Set vars and writing to the database
     boosterPrices.each do |l|
-
-      # Here we are working with regex to detect whether the line is valid
-      # and to pull out the set.  Future versions will pull out quantity.
-      # REGEX string to capture the set :  /\s\[[\w]{2,3}\]/
-      # REGEX string to capture the quantity : /\S\[[\w]{1,3}\]/
       if parsed = booster_parse(l)
         # Here, if the buyPrice or sellPrice is blank, we populate the value
         # with the last value in our database... probably better to extrapolate
@@ -86,11 +60,9 @@ module Marketchase
         # accurate, but it would also save database queries. Future version feature.
 
         set = parsed[:set]
-        buyPrice = parsed[:buy]   # || checkbuyprice(buy, set).strip
-        sellPrice = parsed[:sell] # || checksellprice(sell, set).strip
-        dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
-        dbh.query("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('#{set}', '#{buyPrice}', '#{sellPrice}')")
-        dbh.close
+        buyPrice = parsed[:buy] || Booster.where(MTGSet: set).last.BuyPrice
+        sellPrice = parsed[:sell] || Booster.where(MTGSet: set).last.SellPrice
+        Booster.create!(MTGSet: set, BuyPrice: buyPrice, SellPrice: sellPrice)
       end
     end
   end

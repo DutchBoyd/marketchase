@@ -22,7 +22,7 @@ describe Marketchase do
     it 'inserts price values for a booster pack' do
       subject.should_receive(:booster_parse).and_return(set: 'ME4', buy: '5.87', sell: '6.05')
       mock_list.should_receive(:readlines).and_return(['some line'])
-      mock_dbh.should_receive(:query).with("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('ME4', '5.87', '6.05')")
+      Booster.should_receive(:create!).with(MTGSet: 'ME4', BuyPrice: '5.87', SellPrice: '6.05')
       subject.run
     end
   end
