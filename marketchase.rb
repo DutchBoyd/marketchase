@@ -49,6 +49,24 @@ module Marketchase
     end
   end
 
+  def self.booster_parse(line)
+    case line
+      when /[^\[]+\[(\w+)\]\s+(\d+\.\d+)\s+(\d+\.\d+)/
+        return { set: $1, buy: $2, sell: $3 }
+      when /([^\[]+\[)(\w+)(\]\s+)(\d+\.\d+)\s+/
+        # determine if amount is buy or sell
+        buy_column_start = 52
+        if ($1 + $2 + $3).length > buy_column_start
+          buy, sell = nil, $4
+        else
+          buy, sell = $4, nil
+        end
+        return { set: $2, buy: buy, sell: sell }
+      else
+        return nil
+    end
+  end
+
   def self.run
     #opening Supernova booster pricelist
     f = open('http://supernovabots.com/prices_6.txt')
@@ -61,17 +79,15 @@ module Marketchase
       # and to pull out the set.  Future versions will pull out quantity.
       # REGEX string to capture the set :  /\s\[[\w]{2,3}\]/
       # REGEX string to capture the quantity : /\S\[[\w]{1,3}\]/
-      md = l.match /[^\[]+\[(\w+)\]\s+(\d+\.\d+)\s+(\d+\.\d+)/
-      if md
-        _, set, buy, sell = md.to_a
-
+      if parsed = booster_parse(l)
         # Here, if the buyPrice or sellPrice is blank, we populate the value
         # with the last value in our database... probably better to extrapolate
         # using a .95:1 ratio of buy:sell prices.  Not only would that be more
         # accurate, but it would also save database queries. Future version feature.
 
-        buyPrice = checkbuyprice(buy, set).strip
-        sellPrice = checksellprice(sell, set).strip
+        set = parsed[:set]
+        buyPrice = parsed[:buy]   # || checkbuyprice(buy, set).strip
+        sellPrice = parsed[:sell] # || checksellprice(sell, set).strip
         dbh = Mysql.new(DbConfig['host'], DbConfig['user'], DbConfig['password'], DbConfig['database'])
         dbh.query("INSERT INTO boosters (MTGSet, BuyPrice, SellPrice) VALUES ('#{set}', '#{buyPrice}', '#{sellPrice}')")
         dbh.close
